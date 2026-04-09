@@ -95,6 +95,7 @@ The v6 API introduces several new features while maintaining backwards compatibi
 - **Eddy Dissipation Rate (EDR)** — The `/weather` endpoint now returns `EDR` (at requested altitude) and `EDRs` (vertical profile) fields in the `locWX` response, providing a standardized turbulence metric used by aviation.
 - **New search parameters** — `/search` now supports `XPDR` (transponder code) and `HexID` (ICAO hex identifier) search types.
 - **New endpoints:**
+  - `/active_runway` — Active runway data with wind components, arrival/departure counts, and runway categorization
   - `/tracklog` — Retrieve historical position track for a specific aircraft
   - `/emget` — Query active and historical emergency squawk codes
   - `/satimage` and `/satimageinfo` — Retrieve satellite imagery and metadata
@@ -810,19 +811,50 @@ python API_active_runway.py -a YSSY
 python API_active_runway.py -a KJFK --toff 60    # 60 minutes ago
 ```
 
-**Response:**
+**Example response (YSSY):**
 
 ```json
 {
     "status": 200,
     "message": "OK",
-    "server": "rtwa",
+    "server": "rtw01a",
     "toffset": 0,
-    "data": { ... }
+    "data": {
+        "icao": "YSSY",
+        "timestamp": "2026-04-09T00:58:54Z",
+        "metar": "YSSY 090000Z 33008KT CAVOK 26/17 Q1017",
+        "wind_dir": 330,
+        "wind_speed": 8,
+        "elevation": 21,
+        "active_runways": {
+            "arrival": [],
+            "departure": [],
+            "both": ["RW34L", "RW34R"]
+        },
+        "runways": {
+            "RW07": {"true_brg": 74, "mag_brg": 62, "headwind": -2, "crosswind": 7.8, "arrivals_30m": 0, "departures_30m": 0},
+            "RW16L": {"true_brg": 168, "mag_brg": 155, "headwind": -7.6, "crosswind": -2.5, "arrivals_30m": 0, "departures_30m": 0},
+            "RW16R": {"true_brg": 168, "mag_brg": 155, "headwind": -7.6, "crosswind": -2.5, "arrivals_30m": 0, "departures_30m": 0},
+            "RW25": {"true_brg": 254, "mag_brg": 242, "headwind": 2, "crosswind": -7.8, "arrivals_30m": 0, "departures_30m": 0},
+            "RW34L": {"true_brg": 348, "mag_brg": 335, "headwind": 7.6, "crosswind": 2.5, "arrivals_30m": 1, "departures_30m": 4},
+            "RW34R": {"true_brg": 348, "mag_brg": 335, "headwind": 7.6, "crosswind": 2.5, "arrivals_30m": 3, "departures_30m": 2}
+        }
+    }
 }
 ```
 
-The `data` object contains the active runway information for the requested airport, including per-runway wind components and traffic counts.
+**Response fields in `data`:**
+
+| Field | Description |
+|-------|-------------|
+| `icao` | Airport ICAO code |
+| `timestamp` | UTC timestamp of the data snapshot |
+| `metar` | Current METAR string |
+| `wind_dir` | Surface wind direction in degrees |
+| `wind_speed` | Surface wind speed in knots |
+| `elevation` | Airport elevation in feet |
+| `active_runways` | Categorized runway activity: `arrival` (arrivals only), `departure` (departures only), `both` (arrivals and departures) |
+| `runways` | Per-runway data with `true_brg` (true bearing), `mag_brg` (magnetic bearing), `headwind` (positive = headwind, negative = tailwind), `crosswind` (positive = from left, negative = from right), `arrivals_30m` and `departures_30m` (counts in last 30 minutes) |
 
 **Status codes:**
 
