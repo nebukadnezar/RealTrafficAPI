@@ -404,15 +404,15 @@ class RunwayMonitor:
             arriving = ",".join(self.current_approaches[rwy_id])
             departing = ",".join(self.current_departures[rwy_id])
 
-            # Format with colors: red=tailwind, green=arrivals, blue=departures, magenta=both
-            if headwind < 0:
-                color = COLORS.get_color(COLORS.FG_RED)
-            elif arr_count > 0 and dep_count > 0:
+            # Format with colors: red=tailwind (no traffic), green=arrivals, blue=departures, magenta=both
+            if arr_count > 0 and dep_count > 0:
                 color = COLORS.get_color(COLORS.FG_MAGENTA)
             elif arr_count > 0:
                 color = COLORS.get_color(COLORS.FG_GREEN)
             elif dep_count > 0:
                 color = COLORS.get_color(COLORS.FG_BLUE)
+            elif headwind < 0:
+                color = COLORS.get_color(COLORS.FG_RED)
             else:
                 color = COLORS.get_color(COLORS.RESET)
             print(f"{color}{rwy_id:<7} {rwy_data['true_brg']:03.0f}°   {rwy_data['mag_brg']:03.0f}°  "

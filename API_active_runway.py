@@ -11,6 +11,26 @@ import platform
 from datetime import datetime
 from argparse import ArgumentParser
 
+class ANSIColors:
+    def __init__(self):
+        self.is_windows = platform.system().lower() == "windows"
+        if self.is_windows:
+            from ctypes import windll
+            kernel32 = windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+
+        self.RESET = '\033[0m'
+        self.FG_RED = '\033[31m'
+        self.FG_GREEN = '\033[32m'
+        self.FG_BLUE = '\033[34m'
+        self.FG_MAGENTA = '\033[35m'
+        self.FG_CYAN = '\033[36m'
+
+    def get_color(self, color_code):
+        return color_code if not self.is_windows or os.getenv('TERM') else ''
+
+COLORS = ANSIColors()
+
 #######################################################################################################
 # Fetch the license information
 def get_license():
@@ -143,7 +163,53 @@ if __name__ == '__main__':
               if json_data["status"] != 200:
                   print(json_data)
               else:
-                  print(custom_json_formatter(json_data))
+                  d = json_data["data"]
+
+                  # METAR
+                  print(f"\n{COLORS.get_color(COLORS.FG_GREEN)}METAR {d['icao']}:{COLORS.get_color(COLORS.RESET)}")
+                  print(f"{COLORS.get_color(COLORS.FG_CYAN)}{d['metar']}{COLORS.get_color(COLORS.RESET)}\n")
+
+                  # Wind
+                  if d['wind_dir'] >= 0 and d['wind_speed'] >= 0:
+                      print(f"Surface wind: {d['wind_dir']:03d}° at {d['wind_speed']} knots\n")
+                  else:
+                      print("Unable to parse wind from METAR\n")
+
+                  # Legend
+                  R = COLORS.get_color(COLORS.RESET)
+                  print(f"Runway Analysis: "
+                        f"{COLORS.get_color(COLORS.FG_GREEN)}ARR{R} "
+                        f"{COLORS.get_color(COLORS.FG_BLUE)}DEP{R} "
+                        f"{COLORS.get_color(COLORS.FG_MAGENTA)}ARR+DEP{R} "
+                        f"{COLORS.get_color(COLORS.FG_RED)}TAILWIND{R}")
+                  print("RWY    HDG(T) HDG(M)  Headwind XWnd(+L)    ARR (30m)  DEP (30m)  ARR (24h)  DEP (24h)")
+                  print("-" * 85)
+
+                  for rwy_id, rwy in d['runways'].items():
+                      headwind = rwy['headwind']
+                      crosswind = rwy['crosswind']
+                      arr_count = rwy['arrivals_30m']
+                      dep_count = rwy['departures_30m']
+                      arr_24h = rwy.get('arrivals_24h', 0)
+                      dep_24h = rwy.get('departures_24h', 0)
+
+                      # Color: red=tailwind (no traffic), green=arrivals, blue=departures, magenta=both
+                      if arr_count > 0 and dep_count > 0:
+                          color = COLORS.get_color(COLORS.FG_MAGENTA)
+                      elif arr_count > 0:
+                          color = COLORS.get_color(COLORS.FG_GREEN)
+                      elif dep_count > 0:
+                          color = COLORS.get_color(COLORS.FG_BLUE)
+                      elif headwind < 0:
+                          color = COLORS.get_color(COLORS.FG_RED)
+                      else:
+                          color = COLORS.get_color(COLORS.RESET)
+
+                      print(f"{color}{rwy_id:<7} {rwy['true_brg']:03d}°   {rwy['mag_brg']:03d}°  "
+                            f"{headwind:+6.1f}    {crosswind:+6.1f}    {arr_count:3d}"
+                            f"        {dep_count:3d}        {arr_24h:3d}        {dep_24h:3d}{COLORS.get_color(COLORS.RESET)}")
+
+                  print(f"\nData time: {d['timestamp']}")
         except Exception as e:
           print(e)
           print("error getting active runway data")
