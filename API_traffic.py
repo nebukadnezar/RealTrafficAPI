@@ -157,7 +157,7 @@ def plot_parked_aircraft_positions(aircraft_data, filename):
 def plot_flying_aircraft_positions(aircraft_data, filename):
 
     #   0    1     2       3      4     5    6      7        8         9         10        11        12      13   14         15       16         17       18  19   20     21          22     23               24        25         26          27        28         29               30               31          32      33    34   35      36      37       38  39    40     41   42  43  44    45   46       47
-    # (hex, lat, lon, track, alt_baro, gs, squawk, "X2", ac_type, ac_tailno, seen_pos, from_iata, to_iata, cs_icao, gnd, baro_rate, cs_iata, msg_type, alt_geom, ias, tas, mach, track_rate, roll, mag_heading, true_heading, geom_rate, emergency, category, nav_qnh, nav_altitude_mcp, nav_altitude_fms, nav_heading, nav_modes, nic, rc, nic_baro, nac_p, nac_v, seen, rssi, alert, spi, wd, ws, oat, tat, icaohex, record_augmented)
+    # (hex, lat, lon, track, alt_baro, gs, squawk, "X2", ac_type, ac_tailno, seen_pos, from_iata, to_iata, cs_icao, gnd, baro_rate, cs_iata, msg_type, alt_geom, ias, tas, mach, track_rate, roll, mag_heading, true_heading, geom_rate, emergency, category, nav_qnh, nav_altitude_mcp, nav_altitude_fms, nav_heading, nav_modes, nic, rc, nic_baro, nac_p, nac_v, seen, rssi, alert, spi, wd, ws, oat, tat, icaohex)
 
     lats = []
     lons = []
@@ -276,17 +276,17 @@ if __name__ == '__main__':
 
     # Add optional argument, with given default values if user gives no arg
     parser.add_argument('-l', '--license', help='Your RealTraffic license, e.g. AABBCC-1234-AABBCC-123456')
-    parser.add_argument('-a', '--airport', type=str, help='ICAO code of airport to go to, instead of lat/lon')
-    parser.add_argument('-t', '--traffictype', type=str, required=True,
+    parser.add_argument('-a', '--airport', type=str, default="YSSY", help='ICAO code of airport to go to, instead of lat/lon. Default: YSSY')
+    parser.add_argument('-t', '--traffictype', type=str, default='locationtraffic',
                         choices=['locationtraffic', 'destinationtraffic', 'parkedtraffic'],
-                        help="Specify the type of traffic: locationtraffic, destinationtraffic, or parkedtraffic")
+                        help="Specify the type of traffic: locationtraffic, destinationtraffic, or parkedtraffic. Default: locationtraffic")
     parser.add_argument('--plot', type=str,  nargs='?', const=True, default=False, help="If passed without parameter, shows the plot in a window. If parameter is given, uses the parameter as filename")
     parser.add_argument('--lat', type=float, help="center latitude")
     parser.add_argument('--lon', type=float, help="center latitude")
     parser.add_argument('--alt', default=0, type=float, help="altitude")
     parser.add_argument('-d', '--dbdir', type=str, help="database directory where navdb.s3db is located")
     parser.add_argument('--toff', default=0, type=float, help="time offset in minutes")
-    parser.add_argument('-api', '--api', default="v5", type=str, help="API endpoint to call, default v5")
+    parser.add_argument('-api', '--api', default="v6", type=str, help="API endpoint to call, default v6")
     parser.add_argument('-r', '--radius', type=float, default=100, help="length of box side in km, default 100km")
     parser.add_argument('--server', default="rtwa", type=str, help="server name to connect to. Defaults to rtw, don't change this unless asked to.")
 
@@ -376,59 +376,56 @@ if __name__ == '__main__':
     # wait to avoid request rate violation
     time.sleep(traffic_request_rate_limit)
 
-    left = args.lon - 1/cos(radians(args.lat)) * args.radius / 111
-    right = args.lon + 1/cos(radians(args.lat)) * args.radius / 111
-    top = args.lat + args.radius / 111
-    bottom = args.lat - args.radius / 111
-
-    if left < -180: left += 360
-    if left > 180: left -= 360
-    if right < -180: right += 360
-    if right > 180: right -= 360
-
-    traffic_payload = { "GUID": "%s" % GUID,
-               "querytype": args.traffictype,
-               "top": top,
-               "bottom": bottom,
-               "left": left,
-               "right": right,
-               "toffset": int(args.toff) }
-
-
     try:
-      response = requests.post(traffic_url, traffic_payload, headers=header)
-      json_data = response.json()
-    except Exception as e:
-      print(e)
-      print(response.text)
-      # something borked. abort.
-      print("error getting traffic")
-      exit(1)
+        left = args.lon - 1/cos(radians(args.lat)) * args.radius / 111
+        right = args.lon + 1/cos(radians(args.lat)) * args.radius / 111
+        top = args.lat + args.radius / 111
+        bottom = args.lat - args.radius / 111
 
-    if json_data["status"] != 200:
-      print(json_data["message"])
-      exit(1)
+        if left < -180: left += 360
+        if left > 180: left -= 360
+        if right < -180: right += 360
+        if right > 180: right -= 360
 
+        traffic_payload = { "GUID": "%s" % GUID,
+                   "querytype": args.traffictype,
+                   "top": top,
+                   "bottom": bottom,
+                   "left": left,
+                   "right": right,
+                   "toffset": int(args.toff) }
 
-    if 'dataepoch' in json_data:
-        print("Traffic date:", datetime.fromtimestamp(json_data['dataepoch']).strftime("%Y-%m-%d %H:%M:%S"))
+        try:
+          response = requests.post(traffic_url, traffic_payload, headers=header)
+          json_data = response.json()
+        except Exception as e:
+          print(e)
+          print(response.text)
+          print("error getting traffic")
+          exit(1)
 
-    # Print the full response received
-    print(custom_json_formatter(json_data))
+        if json_data["status"] != 200:
+          print(json_data["message"])
+          exit(1)
 
-    if len(json_data["data"]) == 0:
-        print("No aicraft returned")
+        if 'dataepoch' in json_data:
+            print("Traffic date:", datetime.fromtimestamp(json_data['dataepoch']).strftime("%Y-%m-%d %H:%M:%S"))
 
+        # Print the full response received
+        print(custom_json_formatter(json_data))
 
-    if args.plot and len(json_data["data"]) != 0:
-        print("plotting...")
-        if args.traffictype == "parkedtraffic":
-            plot_parked_aircraft_positions(json_data["data"], args.plot)
-        else:
-            plot_flying_aircraft_positions(json_data["data"], args.plot)
+        if len(json_data["data"]) == 0:
+            print("No aicraft returned")
 
-    # Don't forget to deauth after you're done
-    payload = { "GUID": "%s" % GUID }
-    data = requests.post(deauth_url, payload, headers=header).text
-    print(data)
+        if args.plot and len(json_data["data"]) != 0:
+            print("plotting...")
+            if args.traffictype == "parkedtraffic":
+                plot_parked_aircraft_positions(json_data["data"], args.plot)
+            else:
+                plot_flying_aircraft_positions(json_data["data"], args.plot)
+    finally:
+        # Always deauth before exiting
+        payload = { "GUID": "%s" % GUID }
+        data = requests.post(deauth_url, payload, headers=header).text
+        print(data)
 

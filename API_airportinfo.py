@@ -69,8 +69,8 @@ if __name__ == '__main__':
 
     # Add optional argument, with given default values if user gives no arg
     parser.add_argument('-l', '--license', help='Your RealTraffic license, e.g. AABBCC-1234-AABBCC-123456')
-    parser.add_argument('-a', '--airport', type=str, required=True, help='ICAO code of airport to retrieve info for')
-    parser.add_argument('-api', '--api', default="v5", type=str, help="API endpoint to call, default v5")
+    parser.add_argument('-a', '--airport', type=str, default='YSSY', help='ICAO code of airport to retrieve info for. Default: YSSY')
+    parser.add_argument('-api', '--api', default="v6", type=str, help="API endpoint to call, default v6")
     parser.add_argument('--server', default="rtwa", type=str, help="server name to connect to")
 
     args = parser.parse_args()
@@ -127,28 +127,28 @@ if __name__ == '__main__':
     # set up rate limitation
     time.sleep(traffic_request_rate_limit)
 
-    airportinfo_payload = { "GUID": "%s" % GUID,
-               "ICAO": args.airport }
-
     try:
-      response = requests.post(airportinfo_url, airportinfo_payload, headers=header)
-      json_data = response.json()
-    except Exception as e:
-      print(e)
-      print(response.text)
-      # something borked. abort.
-      print("error getting airport info")
-      exit(1)
+        airportinfo_payload = { "GUID": "%s" % GUID,
+                   "ICAO": args.airport }
 
-    if json_data["status"] != 200:
-      print(json_data)
-      exit(1)
-
-    print(custom_json_formatter(json_data))
-
-    # Don't forget to deauth after you're done
-    payload = { "GUID": "%s" % GUID }
-    data = requests.post(deauth_url, payload, headers=header).text
-    print(data)
+        try:
+          response = requests.post(airportinfo_url, airportinfo_payload, headers=header)
+          if not response.text:
+              print(f"Server returned HTTP {response.status_code} with empty response")
+              print("error getting airport info")
+          else:
+              json_data = response.json()
+              if json_data["status"] != 200:
+                  print(json_data)
+              else:
+                  print(custom_json_formatter(json_data))
+        except Exception as e:
+          print(e)
+          print("error getting airport info")
+    finally:
+        # Always deauth before exiting
+        payload = { "GUID": "%s" % GUID }
+        data = requests.post(deauth_url, payload, headers=header).text
+        print(data)
 
 

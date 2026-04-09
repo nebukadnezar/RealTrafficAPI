@@ -69,11 +69,11 @@ if __name__ == '__main__':
     # Add optional argument, with given default values if user gives no arg
     parser.add_argument('-l', '--license', help='Your RealTraffic license, e.g. AABBCC-1234-AABBCC-123456')
     parser.add_argument('--toff', default=0, type=float, help="time offset in minutes")
-    parser.add_argument('-p', '--searchParam', type=str, required=True,
-                        choices=['Callsign', 'CallsignExact', 'FlightNumber', 'FlightNumberExact', 'From', 'To', 'Tail', 'Type'],
-                        help="Specify which parameter to search")
-    parser.add_argument('-s', '--search', type=str, required=True, help="What to search")
-    parser.add_argument('-api', '--api', default="v5", type=str, help="API endpoint to call, default v5")
+    parser.add_argument('-p', '--searchParam', type=str, default='CallsignExact',
+                        choices=['Callsign', 'CallsignExact', 'FlightNumber', 'FlightNumberExact', 'From', 'To', 'Tail', 'Type', 'XPDR', 'HexID'],
+                        help="Specify which parameter to search. Default: CallsignExact")
+    parser.add_argument('-s', '--search', type=str, default='QFA1', help="What to search. Default: QFA1")
+    parser.add_argument('-api', '--api', default="v6", type=str, help="API endpoint to call, default v6")
     parser.add_argument('--server', default="rtwa", type=str, help="server name to connect to")
 
     args = parser.parse_args()
@@ -128,31 +128,31 @@ if __name__ == '__main__':
 
     time.sleep(traffic_request_rate_limit)
 
-    # Set up the search payload
-    search_payload = { "GUID": "%s" % GUID,
-               "searchParam": args.searchParam,
-               "search": args.search,
-               "toffset": int(args.toff) }
-
     try:
-      response = requests.post(search_url, search_payload, headers=header)
-      json_data = response.json()
-    except Exception as e:
-      print(e)
-      print(response.text)
-      # something borked. abort.
-      print("error with search")
-      exit(1)
+        # Set up the search payload
+        search_payload = { "GUID": "%s" % GUID,
+                   "searchParam": args.searchParam,
+                   "search": args.search,
+                   "toffset": int(args.toff) }
 
-    if json_data["status"] != 200:
-      print(json_data["message"])
-      exit(1)
+        try:
+          response = requests.post(search_url, search_payload, headers=header)
+          json_data = response.json()
+        except Exception as e:
+          print(e)
+          print(response.text)
+          print("error with search")
+          exit(1)
 
-    print(custom_json_formatter(json_data))
+        if json_data["status"] != 200:
+          print(json_data["message"])
+          exit(1)
 
-    # Don't forget to deauth after you're done
-    payload = { "GUID": "%s" % GUID }
-    data = requests.post(deauth_url, payload, headers=header).text
-    print(data)
+        print(custom_json_formatter(json_data))
+    finally:
+        # Always deauth before exiting
+        payload = { "GUID": "%s" % GUID }
+        data = requests.post(deauth_url, payload, headers=header).text
+        print(data)
 
 

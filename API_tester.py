@@ -357,7 +357,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default=10747, type=int, help='Server port')
     parser.add_argument('-s', '--host', default="127.0.0.1", type=str, help='Server host')
     parser.add_argument('-l', '--license', help='Your RealTraffic license, e.g. AABBCC-1234-AABBCC-123456')
-    parser.add_argument('-a', '--airport', type=str, help='ICAO code of airport to go to, instead of lat/lon')
+    parser.add_argument('-a', '--airport', type=str, default='YSSY', help='ICAO code of airport to go to, instead of lat/lon. Default: YSSY')
     parser.add_argument('--lat', type=float, help="center latitude")
     parser.add_argument('--lon', type=float, help="center latitude")
     parser.add_argument('-r', '--radius', type=float, default=100, help="length of box side in km, default 100km")
@@ -368,7 +368,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dbdir', type=str, help="database directory where navdb.s3db is located")
     parser.add_argument('--toff', default=0, type=float, help="time offset in minutes")
     parser.add_argument('--nummetars', default=3, type=int, help="The number of nearest airport METARs to display")
-    parser.add_argument('-api', '--api', default="v5", type=str, help="API endpoint to call, default v5")
+    parser.add_argument('-api', '--api', default="v6", type=str, help="API endpoint to call, default v6")
     parser.add_argument('-tw', '--tw', type=str, help="trace weather filename. Writes the aircraft wind/temp alongside the GFS wind/temp for comparison")
     parser.add_argument('--bufcount', type=int, help="The number of buffers to retrieve. This retrieves the buffer and quits. Requires buftime to be set as well.")
     parser.add_argument('--buftime', type=int, help="The number of seconds between the buffers. Must be an even number.")
@@ -811,7 +811,7 @@ if __name__ == '__main__':
                     time.sleep(weather_request_rate_limit)
                 continue
 
-                # Example response
+                # Example v6 response
                 #  {
                 #      "wrrl": 2000,
                 #      "source": "MemoryDB",
@@ -819,51 +819,32 @@ if __name__ == '__main__':
                 #      "message": "OK",
                 #      "data": {
                 #          "ICAO": "YSSY",
-                #          "QNH": 1025,
-                #          "METAR": "YSSY 212200Z 29008KT CAVOK 10/05 Q1025",
+                #          "QNH": 1015,
+                #          "METAR": "YSSY 080830Z AUTO 13006KT 9999 // NCD 23/19 Q1015",
+                #          "TAF": "TAF YSSY ...",
                 #          "locWX": {
-                #              "Info": "2024-07-21_2220Z",
-                #              "SLP": 1025.2,
-                #              "WSPD": 22.31,
-                #              "WDIR": 283.82,
-                #              "T": 9.15,
-                #              "ST": 10.04,
+                #              "Info": "2026-04-08_0906Z",
+                #              "SLP": 1016.25,
+                #              "WSPD": 77.12,
+                #              "WDIR": 272.62,
+                #              "T": -63.41,
+                #              "ST": 21.28,
                 #              "SVis": 24135,
-                #              "SWSPD": 22.28,
-                #              "SWDIR": 283.94,
-                #              "DZDT": -0.019,
-                #              "LLC": {
-                #                  "cover": 0.0,
-                #                  "base": -1,
-                #                  "tops": -1,
-                #                  "type": -1,
-                #                  "confidence": -1
-                #              },
-                #              "MLC": {
-                #                  "cover": 5.0,
-                #                  "base": 6106,
-                #                  "tops": 6467,
-                #                  "type": 1.0,
-                #                  "confidence": 0.0
-                #              },
-                #              "HLC": {
-                #                  "cover": 25.34,
-                #                  "base": 6483,
-                #                  "tops": 9402,
-                #                  "type": 1.0,
-                #                  "confidence": 0.09
-                #              },
-                #              "TPP": 9710.79,
+                #              "SWSPD": 13.53,
+                #              "SWDIR": 81.35,
+                #              "DZDT": -0.037,
+                #              "EDR": 0.1271,
+                #              "LLC": { "cover": 0.0, "base": -1, "tops": -1, "type": -1, "confidence": -1 },
+                #              "MLC": { "cover": 4.6, "base": 6639, "tops": 6906, "type": 1.1, "confidence": 0.0 },
+                #              "HLC": { "cover": 99.01, "base": 8790, "tops": 12195, "type": 1.03, "confidence": 0.26 },
+                #              "TPP": 12871.01,
                 #              "PRR": 0.0,
-                #              "CAPE": 0.0,
-                #              "DPs": [3.0, 2.24, 1.03, 0.07, -2.46, -8.28, -10.98, -15.94, -18.67, -21.7, -25.64, -26.56, -30.29, -35.63, -43.32, -52.23, -66.71, -75.56, -82.13, -87.27],
-                #              "TEMPs": [9.15, 9.86, 7.92, 6.65, 3.35, 1.22, -1.39, -4.27, -7.13, -11.27, -16.62, -21.57, -27.8, -33.92, -41.5, -50.82, -53.3, -49.57, -52.05, -55.02],
-                #              "WDIRs": [283.94, 258.87, 226.76, 215.3, 208.77, 232.29, 267.41, 256.35, 247.33, 245.8, 244.63, 246.15, 249.2, 257.98, 257.37, 255.55, 260.51, 264.91, 264.43, 258.41],
-                #              "WSPDs": [22.28, 29.31, 39.26, 35.08, 23.81, 8.87, 12.86, 23.84, 36.35, 49.14, 54.16, 58.72, 67.9, 68.22, 79.06, 91.51, 80.26, 94.16, 86.11, 54.38],
-                #              "DZDTs": [-0.02, -0.02, 0.01, 0.02, 0.01, -0.0, 0.01, 0.01, 0.01, 0.0, -0.01, -0.02, -0.02, -0.01, -0.01, 0.01, 0.0, -0.01, -0.02, 0.02],
-                #              "Profiles": "RTFX1              ^S3356.8            ^E15110.6           ^FL163  245/030 -18 ^FL143  246/027 -13 ^FL123  247/021  -8 ^FL103  254/014  -5 ^ 8364  267/007  -2 ^^"
+                #              "CAPE": 42.0,
+                #              "DPs": [...], "TEMPs": [...], "WDIRs": [...], "WSPDs": [...], "DZDTs": [...], "EDRs": [...],
+                #              "Profiles": "RTFX1 ..."
                 #          },
-                #          "AM": ["LSZB 212150Z AUTO 16005KT 9999 SCT040 SCT048 BKN055 21/17 Q1016", "KABQ 212152Z 27007KT 10SM SCT070 SCT180 29/13 A3017 RMK AO2 SLP131 CB DSNT N T02890133 $"]
+                #          "AM": [],
+                #          "AT": []
                 #      }
                 #  }
 
@@ -885,12 +866,14 @@ if __name__ == '__main__':
             if weather_data["locWX"]['SLP'] != -1:
                 weatherdata = "GFS Data: %s\n" % weather_data["locWX"]['Info']
                 weatherdata += f"{ANSIColors.FG_GREEN}SFC:   Wind %03d/%d T %0.1fC QNH %0.1fhPa Vis %0.1dkm Tropo FL%03d{ANSIColors.RESET}\n" % (round(weather_data["locWX"]['SWDIR']), round(weather_data["locWX"]['SWSPD']/1.852), weather_data["locWX"]['ST'], weather_data["locWX"]['SLP'], weather_data["locWX"]['SVis'] / 1000, weather_data["locWX"]['TPP'] / 100 * 3.28084)
-                weatherdata += f"{ANSIColors.FG_GREEN}FL%03d: Wind %03d/%d T %0.1fC{ANSIColors.RESET}" % (args.alt*3.28084/100, round(weather_data["locWX"]['WDIR']), round(weather_data["locWX"]['WSPD']/1.852), weather_data["locWX"]['T'])
+                edr_str = " EDR %0.2f" % weather_data["locWX"]['EDR'] if 'EDR' in weather_data["locWX"] else ""
+                weatherdata += f"{ANSIColors.FG_GREEN}FL%03d: Wind %03d/%d T %0.1fC%s{ANSIColors.RESET}" % (args.alt*3.28084/100, round(weather_data["locWX"]['WDIR']), round(weather_data["locWX"]['WSPD']/1.852), weather_data["locWX"]['T'], edr_str)
                 last_WSPD = weather_data["locWX"]['WSPD']/1.852
                 last_WDIR = weather_data["locWX"]['WDIR']
                 last_TEMP = weather_data["locWX"]['T']
                 last_TPP = weather_data["locWX"]['TPP'] * 3.28084
                 last_DZDT = weather_data["locWX"]['DZDT']
+                last_EDR = weather_data["locWX"].get('EDR', 0)
                 last_clouddata = f"{weather_data['locWX']['LLC']['cover']},{weather_data['locWX']['LLC']['base']},{weather_data['locWX']['LLC']['tops']},{weather_data['locWX']['LLC']['type']}"
                 last_clouddata += f",{weather_data['locWX']['MLC']['cover']},{weather_data['locWX']['MLC']['base']},{weather_data['locWX']['MLC']['tops']},{weather_data['locWX']['MLC']['type']}"
                 last_clouddata += f",{weather_data['locWX']['HLC']['cover']},{weather_data['locWX']['HLC']['base']},{weather_data['locWX']['HLC']['tops']},{weather_data['locWX']['HLC']['type']}"
@@ -978,8 +961,8 @@ if __name__ == '__main__':
         # RealTraffic record format for API access:
         #  0    1     2       3      4     5      6      7       8          9         10       11       12         13    14       15       16        17          18   19   20    21       22       23       24
         # hex, lat, lon, track, alt_baro, gs, squawk, source, ac_type, ac_tailno, seen_pos, from_iata, to_iata, cs_icao, gnd, baro_rate, cs_iata, msg_type, alt_geom, ias, tas, mach, track_rate, roll, mag_heading,
-        #        25        26          27      28           29                30               31         32       33        34   35      36     37    38      39    40    41    42   43  44  45    46     47     48
-        # true_heading, geom_rate, emergency, category, nav_qnh, nav_altitude_mcp, nav_altitude_fms, nav_heading, nav_modes, nic, rc, nic_baro, nac_p, nac_v, seen, rssi, alert, spi, wd, ws, oat, tat, icaohex, record_augmented
+        #        25        26          27      28           29                30               31         32       33        34   35      36     37    38      39    40    41    42   43  44  45    46     47
+        # true_heading, geom_rate, emergency, category, nav_qnh, nav_altitude_mcp, nav_altitude_fms, nav_heading, nav_modes, nic, rc, nic_baro, nac_p, nac_v, seen, rssi, alert, spi, wd, ws, oat, tat, icaohex
 
         flights = []
         # manage the error state if the followed flight wasn't found,

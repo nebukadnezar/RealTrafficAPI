@@ -68,14 +68,14 @@ if __name__ == '__main__':
 
     # Add optional argument, with given default values if user gives no arg
     parser.add_argument('-l', '--license', help='Your RealTraffic license, e.g. AABBCC-1234-AABBCC-123456')
-    parser.add_argument('-a', '--airport', type=str, help='ICAO code of airport to go to, instead of lat/lon')
+    parser.add_argument('-a', '--airport', type=str, default='YSSY', help='ICAO code of airport to go to, instead of lat/lon. Default: YSSY')
     parser.add_argument('--lat', type=float, help="center latitude")
     parser.add_argument('--lon', type=float, help="center latitude")
     parser.add_argument('--alt', default=0, type=float, help="altitude")
     parser.add_argument('-d', '--dbdir', default="/Users/balt/Documents/.InsideSystems", type=str, help="database directory where navdb.s3db is located")
     parser.add_argument('--toff', default=0, type=float, help="time offset in minutes")
     parser.add_argument('--nummetars', default=3, type=int, help="The number of nearest airport METARs to display. Default is 3")
-    parser.add_argument('-api', '--api', default="v5", type=str, help="API endpoint to call, default v5")
+    parser.add_argument('-api', '--api', default="v6", type=str, help="API endpoint to call, default v6")
     parser.add_argument('--server', default="rtwa", type=str, help="server name to connect to")
 
     args = parser.parse_args()
@@ -168,30 +168,30 @@ if __name__ == '__main__':
     # set up rate limitation
     time.sleep(weather_request_rate_limit)
 
-    nearestmetar_payload = { "GUID": "%s" % GUID,
-               "maxcount": args.nummetars,
-               "lat": args.lat,
-               "lon": args.lon,
-               "toffset": int(args.toff) }
-
     try:
-      response = requests.post(nearestmetar_url, nearestmetar_payload, headers=header)
-      json_data = response.json()
-    except Exception as e:
-      print(e)
-      print(response.text)
-      # something borked. abort.
-      print("error getting nearest metar airport code")
-      exit(1)
+        nearestmetar_payload = { "GUID": "%s" % GUID,
+                   "maxcount": args.nummetars,
+                   "lat": args.lat,
+                   "lon": args.lon,
+                   "toffset": int(args.toff) }
 
-    if json_data["status"] != 200:
-      print(json_data["message"])
-      exit(1)
+        try:
+          response = requests.post(nearestmetar_url, nearestmetar_payload, headers=header)
+          json_data = response.json()
+        except Exception as e:
+          print(e)
+          print(response.text)
+          print("error getting nearest metar airport code")
+          exit(1)
 
-    print(custom_json_formatter(json_data))
+        if json_data["status"] != 200:
+          print(json_data["message"])
+          exit(1)
 
-    # Don't forget to deauth after you're done
-    payload = { "GUID": "%s" % GUID }
-    data = requests.post(deauth_url, payload, headers=header).text
-    print(data)
+        print(custom_json_formatter(json_data))
+    finally:
+        # Always deauth before exiting
+        payload = { "GUID": "%s" % GUID }
+        data = requests.post(deauth_url, payload, headers=header).text
+        print(data)
 
