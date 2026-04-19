@@ -23,8 +23,9 @@ Questions or comments: Balthasar Indermühle <balt@inside.net>
   - [/search – Find a flight in the system](#search--find-a-flight-in-the-system)
   - [/tracklog – Retrieve aircraft position history](#tracklog--retrieve-aircraft-position-history)
   - [/emget – Emergency squawk tracker](#emget--emergency-squawk-tracker)
-  - [/satimageinfo – Satellite image metadata](#satimageinfo--satellite-image-metadata)
-  - [/satimage – Retrieve satellite imagery](#satimage--retrieve-satellite-imagery)
+  - [/sattile – Satellite imagery tiles (mbtiles)](#sattile--satellite-imagery-tiles-mbtiles)
+  - [/satimageinfo – Satellite image metadata (deprecated)](#satimageinfo--satellite-image-metadata-deprecated)
+  - [/satimage – Retrieve satellite imagery (deprecated)](#satimage--retrieve-satellite-imagery-deprecated)
   - [/weather_tiles – Weather grid tile data](#weather_tiles--weather-grid-tile-data)
 - [Getting the API example scripts to work](#getting-the-api-example-scripts-to-work)
 - [Indirect API connections via RT application](#indirect-api-connections-via-rt-application)
@@ -98,7 +99,7 @@ The v6 API introduces several new features while maintaining backwards compatibi
   - `/active_runway` — Active runway data with wind components, arrival/departure counts, and runway categorization
   - `/tracklog` — Retrieve historical position track for a specific aircraft
   - `/emget` — Query active and historical emergency squawk codes
-  - `/satimage` and `/satimageinfo` — Retrieve satellite imagery and metadata
+  - `/sattile` — Satellite imagery tiles (replaces `/satimage` and `/satimageinfo`)
   - `/weather_tiles` — Access GFS weather data as grid tiles for visualization
 
 ### General workflow for direct API connections
@@ -1042,64 +1043,111 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&t
 
 ---
 
-### /satimageinfo – Satellite image metadata
+### /sattile – Satellite imagery tiles (mbtiles)
 
-**Address:** `https://rtwa.flyrealtraffic.com/v6/satimageinfo`
+**Address:** `https://rtwa.flyrealtraffic.com/v6/sattile`
 
-Queries the availability and metadata for satellite imagery at a specific location. **New in v6.**
+Serves individual 256x256 Web Mercator (XYZ) satellite image tiles from mbtiles files. Replaces the old two-phase `/satimageinfo` + `/satimage` API with a single request per tile. The server automatically selects the correct satellite region based on tile coordinates.
 
 #### POST parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `GUID` | the GUID obtained from the auth call |
-| `toffset` | time offset in minutes from now |
-| `llLat` | latitude in degrees (-90 to 90) |
-| `llLon` | longitude in degrees (-180 to 180) |
-| `type` | satellite product type name |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `GUID` | yes | the GUID obtained from the auth call |
+| `product` | yes | satellite product: `TC`, `PWV`, `B13`, `RDR`, or `RDW` |
+| `z` | yes | zoom level (integer, 3–8 typical) |
+| `x` | yes | tile column (XYZ / Web Mercator) |
+| `y` | yes | tile row (XYZ / Web Mercator) |
+| `toffset` | no | time offset in minutes. 0 = latest (~10 min ago). Default: 0. Max: 20160 (14 days). |
+| `region` | no | force a specific overlay region (e.g. `USW_MESO1`, `CONUS`). If omitted, base regions are selected automatically. |
+
+#### Products
+
+| Code | Description |
+|------|-------------|
+| `TC` | True Color (day/night blend) |
+| `PWV` | Precipitable Water Vapour |
+| `B13` | Thermal infrared (10.3 µm window channel) |
+| `RDR` | Radar color composite |
+| `RDW` | Radar greyscale |
+
+#### Regions
+
+**Base regions** (selected automatically by tile longitude):
+
+| Region | Longitude | Satellite | Cadence |
+|--------|-----------|-----------|---------|
+| `USW` | -180 to -90 | GOES-18 | 10 min |
+| `USE` | -90 to -45 | GOES-19 | 10 min |
+| `EMEA` | -45 to 45 | MTG-I1 | 10 min |
+| `IODC` | 45 to 90 | Meteosat-9 | 15 min |
+| `APAC` | 90 to 180 | Himawari-9 | 10 min |
+
+**Overlay regions** (request with `region=NAME`):
+
+| Region | Cadence | Description |
+|--------|---------|-------------|
+| `USW_CONUS` / `USE_CONUS` | 5 min | GOES CONUS sector |
+| `USW_MESO1` / `USW_MESO2` | 1 min | GOES-18 mesoscale (variable position) |
+| `USE_MESO1` / `USE_MESO2` | 1 min | GOES-19 mesoscale (variable position) |
+| `AHITGT` | 2.5 min | Himawari target area (roaming) |
+| `AHIJP` | 2.5 min | Himawari Japan area (fixed) |
+
+#### Tile coordinate formulas
+
+Standard XYZ / Web Mercator (same as OpenStreetMap):
+
+```
+n = 2^z
+x = floor((lon + 180) / 360 * n)
+y = floor((1 - ln(tan(lat_rad) + 1/cos(lat_rad)) / pi) / 2 * n)
+```
+
+Where `lat_rad = lat * pi / 180`.
 
 #### Response
 
-```json
-{
-    "status": 200,
-    "data": {
-        "tile": "TC_151_-34.jpg",
-        "ts": 1712345600,
-        "info": "OK"
-    }
-}
+**200 OK** — binary image data (JPEG or PNG) with headers:
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `image/jpeg` or `image/png` |
+| `Cache-Control` | `public, max-age=300` |
+| `X-Sat-Region` | region that served this tile (e.g. `APAC`) |
+| `X-Sat-Ts` | actual timestamp served (e.g. `20260419_0350`) |
+
+**204 No Content** — no tile data for this position/time. Render nothing (transparent).
+
+**400/401/402** — parameter error, auth failure, or expired license (JSON body).
+
+#### Time handling
+
+The server converts `toffset` to a UNIX epoch, snaps to the region's native cadence boundary, and probes up to 3 cadence steps backward if the exact file is missing. For `toffset=0`, the server looks ~10 minutes back to account for processing delay.
+
+#### Example
+
+```
+POST /v6/sattile
+GUID=abc123-...&product=TC&z=5&x=28&y=13&toffset=0
 ```
 
-| Field | Description |
-|-------|-------------|
-| `tile` | the satellite image filename |
-| `ts` | unix epoch of the image timestamp |
-| `info` | `"OK"` if found, or a diagnostic message |
-
-**Notes:**
-- Satellite coverage is provided by geostationary satellites. Images are automatically selected based on longitude: Meteosat for -20° to 70°E, GOES/Himawari for other regions.
-- Image update intervals: Meteosat every 10 minutes, others every 15 minutes.
-- Processing lag is approximately 8 minutes, so images lag behind real-time by 8–18 minutes.
+Response: 24 KB JPEG tile, `X-Sat-Region: APAC`, `X-Sat-Ts: 20260419_0400`.
 
 ---
 
-### /satimage – Retrieve satellite imagery
+### /satimageinfo – Satellite image metadata (deprecated)
+
+> **Deprecated.** Use `/sattile` instead. This endpoint served the old flat-file satellite system which is no longer maintained.
+
+**Address:** `https://rtwa.flyrealtraffic.com/v6/satimageinfo`
+
+---
+
+### /satimage – Retrieve satellite imagery (deprecated)
+
+> **Deprecated.** Use `/sattile` instead. This endpoint served the old flat-file satellite system which is no longer maintained.
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/satimage`
-
-Retrieves a satellite image by filename (as obtained from `/satimageinfo`). **New in v6.**
-
-#### POST parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `GUID` | the GUID obtained from the auth call |
-| `file` | the satellite image filename from the satimageinfo response |
-
-#### Response
-
-Returns a binary JPEG image with `Content-Type: image/jpg`.
 
 ---
 
