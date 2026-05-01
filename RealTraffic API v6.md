@@ -147,7 +147,7 @@ The GUID will remain in memory on the server for **120 seconds** after the last 
 
 ---
 
-### /auth – Authentication
+### /auth – Authentication {#auth--authentication}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/auth`
 
@@ -250,7 +250,7 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=26cb1a52-169b-425e-8df6-7713e5c34835" 
 
 ---
 
-### /traffic – Obtaining traffic
+### /traffic – Obtaining traffic {#traffic--obtaining-traffic}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/traffic`
 
@@ -493,7 +493,7 @@ When multiple airports are returned (using `maxcount`):
 
 ---
 
-### /weather – Obtaining weather
+### /weather – Obtaining weather {#weather--obtaining-weather}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/weather`
 
@@ -661,7 +661,7 @@ The `locWX` data is always model derived, while METARs are always observation de
 
 ---
 
-### /sigmet – Fetch global SIGMETs
+### /sigmet – Fetch global SIGMETs {#sigmet--fetch-global-sigmets}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/sigmet`
 
@@ -683,14 +683,23 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&t
 #### Response
 
 ```json
-{"source": "MemoryDB", "status": 200, "data": {"DATE": "2024-07-22 04:00:00", "DATA": "WSCI35 ZGGG 212345^ZGZU SIGMET 6 VALID 220015/220415 ZGGG-^..."}}
+{
+  "source": "MemoryDB",
+  "status": 200,
+  "data": {
+    "DATE": "2024-07-22 04:00:00",
+    "DATA": "WSCI35 ZGGG 212345^..."
+  }
+}
 ```
+
+The `DATA` field is the raw concatenated SIGMET bulletin text — typically tens of kilobytes. Individual SIGMETs are separated by `^` (caret) characters.
 
 You will need to parse the SIGMET data on your own. This is a complex format, but some help is available online on how to parse it successfully.
 
 ---
 
-### /airportinfo – Obtaining information about an airport
+### /airportinfo – Obtaining information about an airport {#airportinfo--obtaining-information-about-an-airport}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/airportinfo`
 
@@ -797,7 +806,7 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&I
 
 ---
 
-### /active_runway – Active runway data
+### /active_runway – Active runway data {#active_runway--active-runway-data}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/active_runway`
 
@@ -890,7 +899,7 @@ python active_runway_standalone.py -a YSSY
 
 ---
 
-### /search – Find a flight in the system
+### /search – Find a flight in the system {#search--find-a-flight-in-the-system}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/search`
 
@@ -942,7 +951,7 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&t
 
 ---
 
-### /tracklog – Retrieve aircraft position history
+### /tracklog – Retrieve aircraft position history {#tracklog--retrieve-aircraft-position-history}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/tracklog`
 
@@ -991,7 +1000,7 @@ Returns a JSON array of position strings. Each string contains comma-separated v
 
 ---
 
-### /emget – Emergency squawk tracker
+### /emget – Emergency squawk tracker {#emget--emergency-squawk-tracker}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/emget`
 
@@ -1055,7 +1064,7 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&t
 
 ---
 
-### /sattile – Satellite imagery tiles (mbtiles)
+### /sattile – Satellite imagery tiles (mbtiles) {#sattile--satellite-imagery-tiles-mbtiles}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/sattile`
 
@@ -1151,7 +1160,7 @@ Response: 24 KB JPEG tile, `X-Sat-Region: APAC`, `X-Sat-Ts: 20260419_0400`.
 
 ---
 
-### /weather_tiles – Weather grid tile data
+### /weather_tiles – Weather grid tile data {#weather_tiles--weather-grid-tile-data}
 
 **Address:** `https://rtwa.flyrealtraffic.com/v6/weather_tiles`
 
