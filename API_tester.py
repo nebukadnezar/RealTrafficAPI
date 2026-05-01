@@ -144,7 +144,12 @@ def UDPbcast(ip, bcast, port, data):
 #######################################################################################################
 # gets the size of the terminal
 def get_terminal_size():
-    columns, rows = os.get_terminal_size()
+    # os.get_terminal_size() raises OSError when stdout isn't a TTY
+    # (piped, redirected, or wrapped). Fall back to a sane default.
+    try:
+        columns, rows = os.get_terminal_size()
+    except OSError:
+        columns, rows = 80, 24
     return columns, rows
 
 #######################################################################################################
