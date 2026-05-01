@@ -1,0 +1,14 @@
+# Build helpers (kept local — not for public consumption)
+zip_and_upload.sh
+pandoc-header.tex
+
+# Build artifacts
+RealTraffic API.pdf
+RTAPI.zip
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+~$*
