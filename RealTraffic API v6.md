@@ -24,8 +24,6 @@ Questions or comments: Balthasar Indermühle <balt@inside.net>
   - [/tracklog – Retrieve aircraft position history](#tracklog--retrieve-aircraft-position-history)
   - [/emget – Emergency squawk tracker](#emget--emergency-squawk-tracker)
   - [/sattile – Satellite imagery tiles (mbtiles)](#sattile--satellite-imagery-tiles-mbtiles)
-  - [/satimageinfo – Satellite image metadata (deprecated)](#satimageinfo--satellite-image-metadata-deprecated)
-  - [/satimage – Retrieve satellite imagery (deprecated)](#satimage--retrieve-satellite-imagery-deprecated)
   - [/weather_tiles – Weather grid tile data](#weather_tiles--weather-grid-tile-data)
 - [Getting the API example scripts to work](#getting-the-api-example-scripts-to-work)
 - [Indirect API connections via RT application](#indirect-api-connections-via-rt-application)
@@ -201,10 +199,24 @@ curl -sH 'Accept-encoding: gzip' -d "token=rt_your_api_token_here&software=MyCoo
 | `GUID` | the session GUID you need to store and use in any communications going forward. |
 | `server` | the internal name of the server handling the request. Please indicate this name in case you run into repeatable problems using the API. |
 
+#### Error responses
+
+All errors return JSON with a `status` field matching the HTTP-conventional code, plus a human-readable `message`. Bodies always include the `server` field for support purposes.
+
+| `status` | When | `message` example |
+|----------|------|-------------------|
+| `402` | Token auth: the account has no active subscription and no valid linked license. | `"No active subscription"` |
+| `403` | Token auth: the account exists but its email isn't verified. | `"Email not verified"` |
+| `404` | License auth: the license string was empty, contained invalid characters, or the format check failed (after whitespace trim). The same status is returned for licenses that pass format checks but aren't in the database. | `"Invalid license format"` or `"License not found"` |
+| `404` | Token auth: the supplied `token` doesn't match any row in the `api_tokens` table. | `"Invalid token"` |
+| `405` | The license/account is already at its concurrent-sessions cap. | `"Too many sessions"` |
+| `429` | The same IP has failed auth (token or license) more than 10 times in the last 5 minutes. Lockout lasts the rest of the 5-minute window. | `"Too many failed attempts"` |
+| `500` | Database connection failure or sustained memcached errors (>20 retries with 100 ms backoff). | `"No database connection"`, `"Too many memcache errors. Giving up."` |
+
 **Notes:**
 - Active data feeders are automatically upgraded to professional (type 2) with 2 concurrent sessions.
 - Token auth checks for an active subscription on the associated account. If no subscription is found, it falls back to any linked license.
-- 10 failed auth attempts from the same IP address will trigger a 5-minute lockout (status 429).
+- The license string is whitespace-trimmed before validation, so `"  XXXXX-XXXX-XXXXXX-XXXXXX  "` is treated as `"XXXXX-XXXX-XXXXXX-XXXXXX"`. Internal spaces and other non-`[A-Za-z0-9-]` characters still fail with status 404 / `"Invalid license format"`.
 
 ---
 
@@ -271,8 +283,8 @@ curl -sH 'Accept-encoding: gzip' -d "GUID=76ff411b-d481-470f-9ce5-5c3cbc71a276&t
 ```json
 {
     "data": {
-        "7c1522": ["7c1522", -16.878799, 145.66705, 103.16, 3025, 127.3, 1752, "X2", "A139", "VH-EGK", 1658644400.67, "MRG", "", "RSCU510", 0, -768, "RSCU510", "adsb_icao", 3350, 140, 148, 0.224, 1.06, 7.38, 93.87, 100.46, -800, "none", "A7", 1014.4, 1024, 1008, null, "tcas", 8, 186, 1, 9, 2, 0.1, -9.3, 0, 0, 91, 20, null, null],
-        "7c68a1": ["7c68a1", -16.754288, 145.693311, 156.07, 2325, 165.2, 6042, "X2", "E190", "VH-UYB", 1658644401.01, "BNE", "CNS", "QFA1926", 0, -960, "QF1926", "adsb_icao", 2625, 173, 182, 0.272, -0.09, -1.41, 146.6, 153.18, -928, "none", "A3", 1014.4, 3712, 2896, null, "autopilot|approach|tcas", 8, 186, 1, 9, 2, 0.1, -20.2, 0, 0, 123, 19, null, null]
+        "7c1522": ["7c1522", -16.878799, 145.66705, 103.16, 3025, 127.3, 1752, "X", "A139", "VH-EGK", 1658644400.67, "MRG", "", "RSCU510", 0, -768, "RSCU510", "X_adsb_icao", 3350, 140, 148, 0.224, 1.06, 7.38, 93.87, 100.46, -800, "none", "A7", 1014.4, 1024, 1008, null, "tcas", 8, 186, 1, 9, 2, 0.1, -9.3, 0, 0, 91, 20, null, null],
+        "7c68a1": ["7c68a1", -16.754288, 145.693311, 156.07, 2325, 165.2, 6042, "RT", "E190", "VH-UYB", 1658644401.01, "BNE", "CNS", "QFA1926", 0, -960, "QF1926", "F_adsb_icao", 2625, 173, 182, 0.272, -0.09, -1.41, 146.6, 153.18, -928, "none", "A3", 1014.4, 3712, 2896, null, "autopilot|approach|tcas", 8, 186, 1, 9, 2, 0.1, -20.2, 0, 0, 123, 19, null, null]
     },
     "full_count": 6839,
     "source": "MemoryDB",
@@ -306,7 +318,7 @@ The data fields for each aircraft entry are as follows (0-indexed):
 | 4 | barometric altitude in ft (std pressure) | 2325 |
 | 5 | Ground speed in kts | 165.2 |
 | 6 | Squawk / transponder code | 6042 |
-| 7 | Data source (provider code) | "X2" |
+| 7 | Data source (provider code) | "X" |
 | 8 | Type | E190 |
 | 9 | Registration | VH-UYB |
 | 10 | Epoch timestamp of last position update | 1658644401.01 |
@@ -1118,7 +1130,11 @@ Where `lat_rad = lat * pi / 180`.
 
 **204 No Content** — no tile data for this position/time. Render nothing (transparent).
 
-**400/401/402** — parameter error, auth failure, or expired license (JSON body).
+**400** — invalid `product` (must be one of `TC`, `PWV`, `B13`, `RDR`, `RDW`) or other malformed parameter. JSON body: `{"status": 400, "message": "Invalid product. Must be one of: TC, PWV, B13, RDR, RDW", "server": "..."}`.
+
+**401** — auth failure (bad or expired GUID). JSON body.
+
+**402** — license expired. JSON body.
 
 #### Time handling
 
@@ -1132,22 +1148,6 @@ GUID=abc123-...&product=TC&z=5&x=28&y=13&toffset=0
 ```
 
 Response: 24 KB JPEG tile, `X-Sat-Region: APAC`, `X-Sat-Ts: 20260419_0400`.
-
----
-
-### /satimageinfo – Satellite image metadata (deprecated)
-
-> **Deprecated.** Use `/sattile` instead. This endpoint served the old flat-file satellite system which is no longer maintained.
-
-**Address:** `https://rtwa.flyrealtraffic.com/v6/satimageinfo`
-
----
-
-### /satimage – Retrieve satellite imagery (deprecated)
-
-> **Deprecated.** Use `/sattile` instead. This endpoint served the old flat-file satellite system which is no longer maintained.
-
-**Address:** `https://rtwa.flyrealtraffic.com/v6/satimage`
 
 ---
 
