@@ -328,7 +328,8 @@ def plot_live_aircraft_positions(aircraft_data, live_plot, map_extent):
 # authenticate
 def authenticate(args, software):
   global auth_count
-  payload = { "license": "%s" % args.license, "software": "%s" % software }
+  auth_field = "token" if args.license.startswith("rt_") else "license"
+  payload = { auth_field: args.license, "software": software }
   data = requests.post(auth_url, payload, headers=header).text
   print(f"Server response: {data}")
   json_data = json.loads(data)

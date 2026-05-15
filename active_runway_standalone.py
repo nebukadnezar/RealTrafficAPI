@@ -222,7 +222,8 @@ class RunwayMonitor:
 
     def authenticate(self):
         print("Authenticating...")
-        payload = {"license": self.license, "software": "RunwayMonitor"}
+        auth_field = "token" if self.license.startswith("rt_") else "license"
+        payload = {auth_field: self.license, "software": "RunwayMonitor"}
         response = requests.post(self.auth_url, payload, headers=self.header)
         data = response.json()
 

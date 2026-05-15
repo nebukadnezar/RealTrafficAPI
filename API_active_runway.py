@@ -124,7 +124,8 @@ if __name__ == '__main__':
 
     ###############################################################
     # authenticate
-    payload = { "license": "%s" % args.license, "software": "%s" % software }
+    auth_field = "token" if args.license.startswith("rt_") else "license"
+    payload = { auth_field: args.license, "software": software }
     data = requests.post(auth_url, payload, headers=header).text
     print(data)
     json_data = json.loads(data)
