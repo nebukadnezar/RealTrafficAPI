@@ -359,8 +359,11 @@ The data fields for each aircraft entry are as follows (0-indexed):
 | 45 | SAT/OAT in C | (none) |
 | 46 | TAT | (none) |
 | 47 | Is this an ICAO valid hex ID | 1 |
+| 48 | Operator livery code (ICAO airline / operator flag code) | "QFA" |
 
-**Note:** The v6 traffic data array has 48 fields (indices 0–47). The v5 `record_augmented` field at index 48 has been removed.
+**Note:** The v6 traffic data array has 49 fields (indices 0–47 from the original v6 schema plus index 48 for the new operator-livery code). The v5 `record_augmented` field at index 48 has been removed; the slot is now occupied by the operator-livery code described above.
+
+The operator-livery code at index 48 is the ICAO operator/airline flag code as it appears on the airframe (e.g. "QFA" for Qantas, "FDX" for FedEx, "SHF" for Shell-leased helicopters). It is keyed on the hex transponder ID rather than the operating callsign, so it remains correct under wet-lease and codeshare operations where the callsign-derived airline would be wrong. Source: the OperatorFlagCode column of the OpenSky-derived BaseStation aircraft database, refreshed daily. The field is an empty string when the hex is not present in the database (~30% of records; mostly private/military airframes).
 
 #### Message source types
 
@@ -1556,58 +1559,59 @@ XATTPSX,hdg,pitch,roll
 
 ### RTTFC/RTDEST format
 
-This format contains almost all information available from the data sources:
+This format contains almost all information available from the data sources. The broadcast is 43 comma-separated fields (positions 0–42), one packet per aircraft, UDP to port 49005 for RTTFC.
 
 ```
-RTTFC,hexid,lat,lon,baro_alt,baro_rate,gnd,track,gsp,cs_icao,ac_type,ac_tailno,from_iata,to_iata,timestamp,source,cs_iata,msg_type,alt_geom,IAS,TAS,Mach,track_rate,roll,mag_heading,true_heading,geom_rate,emergency,category,nav_qnh,nav_altitude_mcp,nav_altitude_fms,nav_heading,nav_modes,seen,rssi,winddir,windspd,OAT,TAT,isICAOhex,augmentation_status,baro_alt_uncorrected,authentication
+RTTFC,hexid,lat,lon,baro_alt,baro_rate,airborne,track,gsp,cs_icao,ac_type,ac_tailno,from_iata,to_iata,timestamp,source,cs_iata,msg_type,alt_geom,IAS,TAS,Mach,track_rate,roll,mag_heading,true_heading,geom_rate,emergency,category,nav_qnh,nav_altitude_mcp,nav_altitude_fms,nav_heading,nav_modes,seen,rssi,winddir,windspd,OAT,TAT,isICAOhex,baro_alt_uncorrected,authentication
 ```
 
-| Index | Field | Description |
-|-------|-------|-------------|
-| 0 | Format | RTTFC = location traffic, RTDEST = destination traffic, RTPARK = parked traffic |
-| 1 | hexid | transponder's unique hexadecimal ID |
-| 2 | lat | latitude |
-| 3 | lon | longitude |
-| 4 | baro_alt | barometric altitude (corrected for local QNH) |
-| 5 | baro_rate | barometric vertical rate |
-| 6 | gnd | ground flag |
-| 7 | track | track |
-| 8 | gsp | ground speed |
-| 9 | cs_icao | ICAO call sign |
-| 10 | ac_type | aircraft type |
-| 11 | ac_tailno | aircraft registration |
-| 12 | from_iata | origin IATA code |
-| 13 | to_iata | destination IATA code |
-| 14 | timestamp | unix epoch timestamp |
-| 15 | source | data source |
-| 16 | cs_iata | IATA call sign (flight number) |
-| 17 | msg_type | type of message |
-| 18 | alt_geom | geometric altitude (WGS84 GPS altitude) |
-| 19 | IAS | indicated air speed |
-| 20 | TAS | true air speed |
-| 21 | Mach | Mach number |
-| 22 | track_rate | rate of change for track |
-| 23 | roll | roll in degrees (negative = left) |
-| 24 | mag_heading | magnetic heading |
-| 25 | true_heading | true heading |
-| 26 | geom_rate | geometric vertical rate |
-| 27 | emergency | emergency status |
-| 28 | category | aircraft category |
-| 29 | nav_qnh | QNH setting in MCP/FCU |
-| 30 | nav_altitude_mcp | altitude dialed into MCP/FCU |
-| 31 | nav_altitude_fms | FMS altitude |
-| 32 | nav_heading | MCP heading |
-| 33 | nav_modes | autopilot modes |
-| 34 | seen | seconds since last message update |
-| 35 | rssi | signal strength at receiver |
-| 36 | winddir | wind direction in degrees true north |
-| 37 | windspd | wind speed in kts |
-| 38 | OAT | outside air temperature / SAT |
-| 39 | TAT | total air temperature |
-| 40 | isICAOhex | is this hexid ICAO assigned |
-| 41 | augmentation_status | has record been augmented from multiple sources |
-| 42 | baro_alt_uncorrected | raw ADS-B altitude from transponder |
-| 43 | authentication | authentication checksum (safe to ignore) |
+| Index | Field | Type | Description |
+|-------|-------|------|-------------|
+| 0 | Format | string | `RTTFC` = location traffic, `RTDEST` = destination traffic, `RTPARK` = parked traffic, `RTBUF=N` = buffer-fill snapshot index N |
+| 1 | hexid | int | transponder's unique ICAO 24-bit address, transmitted as **decimal** (not hex) |
+| 2 | lat | float (5dp) | latitude in degrees, south negative |
+| 3 | lon | float (5dp) | longitude in degrees, west negative |
+| 4 | baro_alt | int | barometric altitude in feet, **corrected for local QNH** (raw value at field 41) |
+| 5 | baro_rate | int | barometric vertical rate in feet per minute |
+| 6 | airborne | int | airborne flag: **1 = airborne, 0 = on ground** (inverted from the server's ground flag) |
+| 7 | track | float (2dp) | true track in degrees |
+| 8 | gsp | float (2dp) | ground speed in knots |
+| 9 | cs_icao | string | ICAO call sign |
+| 10 | ac_type | string | aircraft type (ICAO code) |
+| 11 | ac_tailno | string | aircraft registration |
+| 12 | from_iata | string | origin IATA code |
+| 13 | to_iata | string | destination IATA code |
+| 14 | timestamp | float (1dp) | unix epoch timestamp (seconds with one decimal) |
+| 15 | source | string | data provider letter (e.g. `X2`, `V`, `F`) — see also field 17 |
+| 16 | cs_iata | string | IATA call sign (flight number) |
+| 17 | msg_type | string | message-source type, prefixed with the provider letter and an underscore (see Message source types below) |
+| 18 | alt_geom | int | geometric altitude in feet (WGS84 GPS altitude) |
+| 19 | IAS | int | indicated air speed in knots |
+| 20 | TAS | int | true air speed in knots |
+| 21 | Mach | float (3dp) | Mach number |
+| 22 | track_rate | float (1dp) | rate of change of track in deg/sec |
+| 23 | roll | float (1dp) | roll in degrees (negative = left) |
+| 24 | mag_heading | float (2dp) | magnetic heading in degrees |
+| 25 | true_heading | float (2dp) | true heading in degrees |
+| 26 | geom_rate | int | geometric vertical rate in feet per minute |
+| 27 | emergency | string | emergency status (`none` if no emergency) |
+| 28 | category | string | aircraft transmitter category (see Transmitter categories) |
+| 29 | nav_qnh | float (1dp) | QNH setting in the MCP/FCU, hPa |
+| 30 | nav_altitude_mcp | int | altitude dialed into the MCP/FCU, feet |
+| 31 | nav_altitude_fms | int | altitude programmed in the FMS, feet |
+| 32 | nav_heading | float (2dp) | heading set in the MCP, degrees |
+| 33 | nav_modes | string | autopilot modes pipe-separated (e.g. `autopilot\|vnav\|lnav\|tcas`), or `null` |
+| 34 | seen | float (1dp) | seconds since the last position update |
+| 35 | rssi | float (1dp) | signal strength at the receiver, dBm |
+| 36 | winddir | int | wind direction in degrees true |
+| 37 | windspd | int | wind speed in knots |
+| 38 | OAT | int | outside air temperature / SAT, °C |
+| 39 | TAT | int | total air temperature, °C |
+| 40 | isICAOhex | int | 1 if the hexid is ICAO-assigned, 0 otherwise |
+| 41 | baro_alt_uncorrected | int | raw ADS-B barometric altitude (1013.25 hPa reference) in feet, before the QNH correction applied to field 4 |
+| 42 | authentication | int | checksum (safe to ignore) |
+
+**Fields not currently included in the broadcast:** the server traffic feed also carries `nic`, `rc`, `nic_baro`, `nac_p`, `nac_v`, `alert`, `spi`, and (as of the v6.x schema update) the 3-letter ICAO `operator` code. These are present in the upstream `/traffic` response but are not emitted by the RTTFC packet.
 
 **Source field values:**
 - `adsb`: reduced data ADS-B field
@@ -1625,10 +1629,58 @@ RTTFC,hexid,lat,lon,baro_alt,baro_rate,gnd,track,gsp,cs_icao,ac_type,ac_tailno,f
 
 All source fields are preceded by `?_` where `?` is a letter identifying the data provider. If preceded by `ID_`, the data is interpolated.
 
-**Example:**
+**Example** (airborne aircraft — note field 6 = 1):
 ```
-RTTFC,10750303,-33.7964,152.3938,20375,1376,0,66.77,484.30,UAL842,B789,N35953,SYD,LAX,1645144889.8,X2,UA842,F_adsb_icao,21350,343,466,0.744,-0.0,0.5,54.49,67.59,1280,none,A5,1012.8,35008,-1,54.84,autopilot|vnav|lnav|tcas,0.0,-20.8,227,19,-15,14,1,26235,268697
+RTTFC,10750303,-33.7964,152.3938,20375,1376,1,66.77,484.30,UAL842,B789,N35953,SYD,LAX,1645144889.8,X2,UA842,F_adsb_icao,21350,343,466,0.744,-0.0,0.5,54.49,67.59,1280,none,A5,1012.8,35008,-1,54.84,autopilot|vnav|lnav|tcas,0.0,-20.8,227,19,-15,14,1,26235,268697
 ```
+
+Field-by-field for this example:
+
+| Pos | Value | Field |
+|-----|-------|-------|
+| 0 | `RTTFC` | format label |
+| 1 | `10750303` | hexid (decimal of `A4179F`) |
+| 2 | `-33.7964` | lat |
+| 3 | `152.3938` | lon |
+| 4 | `20375` | baro_alt (QNH-corrected) |
+| 5 | `1376` | baro_rate (ft/min, climbing) |
+| 6 | `1` | airborne |
+| 7 | `66.77` | track |
+| 8 | `484.30` | gsp |
+| 9 | `UAL842` | cs_icao |
+| 10 | `B789` | ac_type |
+| 11 | `N35953` | ac_tailno |
+| 12 | `SYD` | from_iata |
+| 13 | `LAX` | to_iata |
+| 14 | `1645144889.8` | timestamp |
+| 15 | `X2` | source provider |
+| 16 | `UA842` | cs_iata |
+| 17 | `F_adsb_icao` | msg_type |
+| 18 | `21350` | alt_geom |
+| 19 | `343` | IAS |
+| 20 | `466` | TAS |
+| 21 | `0.744` | Mach |
+| 22 | `-0.0` | track_rate |
+| 23 | `0.5` | roll |
+| 24 | `54.49` | mag_heading |
+| 25 | `67.59` | true_heading |
+| 26 | `1280` | geom_rate |
+| 27 | `none` | emergency |
+| 28 | `A5` | category (heavy jet) |
+| 29 | `1012.8` | nav_qnh |
+| 30 | `35008` | nav_altitude_mcp |
+| 31 | `-1` | nav_altitude_fms (unknown) |
+| 32 | `54.84` | nav_heading |
+| 33 | `autopilot\|vnav\|lnav\|tcas` | nav_modes |
+| 34 | `0.0` | seen |
+| 35 | `-20.8` | rssi |
+| 36 | `227` | winddir |
+| 37 | `19` | windspd |
+| 38 | `-15` | OAT |
+| 39 | `14` | TAT |
+| 40 | `1` | isICAOhex |
+| 41 | `26235` | baro_alt_uncorrected |
+| 42 | `268697` | authentication |
 
 ---
 
