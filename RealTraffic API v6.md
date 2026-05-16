@@ -1559,10 +1559,10 @@ XATTPSX,hdg,pitch,roll
 
 ### RTTFC/RTDEST format
 
-This format contains almost all information available from the data sources. The broadcast is 43 comma-separated fields (positions 0–42), one packet per aircraft, UDP to port 49005 for RTTFC.
+This format contains almost all information available from the data sources. The broadcast is 44 comma-separated fields (positions 0–43), one packet per aircraft, UDP to port 49005 for RTTFC.
 
 ```
-RTTFC,hexid,lat,lon,baro_alt,baro_rate,airborne,track,gsp,cs_icao,ac_type,ac_tailno,from_iata,to_iata,timestamp,source,cs_iata,msg_type,alt_geom,IAS,TAS,Mach,track_rate,roll,mag_heading,true_heading,geom_rate,emergency,category,nav_qnh,nav_altitude_mcp,nav_altitude_fms,nav_heading,nav_modes,seen,rssi,winddir,windspd,OAT,TAT,isICAOhex,baro_alt_uncorrected,authentication
+RTTFC,hexid,lat,lon,baro_alt,baro_rate,airborne,track,gsp,cs_icao,ac_type,ac_tailno,from_iata,to_iata,timestamp,source,cs_iata,msg_type,alt_geom,IAS,TAS,Mach,track_rate,roll,mag_heading,true_heading,geom_rate,emergency,category,nav_qnh,nav_altitude_mcp,nav_altitude_fms,nav_heading,nav_modes,seen,rssi,winddir,windspd,OAT,TAT,isICAOhex,baro_alt_uncorrected,authentication,operator
 ```
 
 | Index | Field | Type | Description |
@@ -1610,8 +1610,9 @@ RTTFC,hexid,lat,lon,baro_alt,baro_rate,airborne,track,gsp,cs_icao,ac_type,ac_tai
 | 40 | isICAOhex | int | 1 if the hexid is ICAO-assigned, 0 otherwise |
 | 41 | baro_alt_uncorrected | int | raw ADS-B barometric altitude (1013.25 hPa reference) in feet, before the QNH correction applied to field 4 |
 | 42 | authentication | int | checksum (safe to ignore) |
+| 43 | operator | string | 3-letter ICAO operator/airline flag code (e.g. `QFA`, `FDX`), or empty string if unknown. See the `/traffic` field-48 description above for the full data source and caveats. **Added in RealTraffic v11.1.452** — older builds will not send this field, so receivers must treat it as optional. |
 
-**Fields not currently included in the broadcast:** the server traffic feed also carries `nic`, `rc`, `nic_baro`, `nac_p`, `nac_v`, `alert`, `spi`, and (as of the v6.x schema update) the 3-letter ICAO `operator` code. These are present in the upstream `/traffic` response but are not emitted by the RTTFC packet.
+**Fields not currently included in the broadcast:** the server traffic feed also carries `nic`, `rc`, `nic_baro`, `nac_p`, `nac_v`, `alert`, and `spi`. These are present in the upstream `/traffic` response but are not emitted by the RTTFC packet.
 
 **Source field values:**
 - `adsb`: reduced data ADS-B field
@@ -1631,7 +1632,7 @@ All source fields are preceded by `?_` where `?` is a letter identifying the dat
 
 **Example** (airborne aircraft — note field 6 = 1):
 ```
-RTTFC,10750303,-33.7964,152.3938,20375,1376,1,66.77,484.30,UAL842,B789,N35953,SYD,LAX,1645144889.8,X2,UA842,F_adsb_icao,21350,343,466,0.744,-0.0,0.5,54.49,67.59,1280,none,A5,1012.8,35008,-1,54.84,autopilot|vnav|lnav|tcas,0.0,-20.8,227,19,-15,14,1,26235,268697
+RTTFC,10750303,-33.7964,152.3938,20375,1376,1,66.77,484.30,UAL842,B789,N35953,SYD,LAX,1645144889.8,X2,UA842,F_adsb_icao,21350,343,466,0.744,-0.0,0.5,54.49,67.59,1280,none,A5,1012.8,35008,-1,54.84,autopilot|vnav|lnav|tcas,0.0,-20.8,227,19,-15,14,1,26235,268697,UAL
 ```
 
 Field-by-field for this example:
@@ -1681,6 +1682,7 @@ Field-by-field for this example:
 | 40 | `1` | isICAOhex |
 | 41 | `26235` | baro_alt_uncorrected |
 | 42 | `268697` | authentication |
+| 43 | `UAL` | operator (ICAO operator code — United Airlines) |
 
 ---
 
